@@ -1677,9 +1677,14 @@ func world_command(action: Dictionary) -> void:
 			var property: String = "name" if action.kind == "rename" else action.kind
 			data.metadata(map)[property] = str(action.value).left(80) if property == "name" else action.value
 		"add_terrain":
-			if map.terrain_sets.size() >= 16 or int(action.start) + 16 > world.textures.size(): notify("O terreno precisa de 16 tiles consecutivos disponíveis; limite de 16 terrenos."); return
+			var mode: String = str(action.get("mode", "edge16"))
+			var count: int = preload("res://core/world_data.gd").TERRAIN_MODES.get(mode, 0)
+			if count == 0 or map.terrain_sets.size() >= 16 or int(action.start) + count > world.textures.size(): notify("O terreno precisa de 16 ou 47 tiles consecutivos disponíveis, conforme o modo; limite de 16 terrenos."); return
 			doc.checkpoint("Criar terreno")
-			map.terrain_sets.append({"name": str(action.name).left(80) if action.name != "" else "Terreno " + str(map.terrain_sets.size() + 1), "tiles": range(int(action.start), int(action.start) + 16)})
+			var definition := {"name": str(action.name).left(80) if action.name != "" else "Terreno " + str(map.terrain_sets.size() + 1), "tiles": range(int(action.start), int(action.start) + count)}
+			if mode != "edge16": definition.mode = mode
+			if str(action.get("outside", "different")) == "same": definition.outside = "same"
+			map.terrain_sets.append(definition)
 			world.terrain = map.terrain_sets.size() - 1
 		"remove_door":
 			if int(action.index) < 0 or int(action.index) >= map.doors.size(): notify("Selecione uma conexão para remover."); return

@@ -3,6 +3,12 @@ extends RefCounted
 const MAX_SIDE = 128
 const MAX_LAYERS = 8
 const NEIGHBORS = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+## Clockwise from north; bit i of a blob mask refers to NEIGHBORS_8[i].
+const NEIGHBORS_8 = [Vector2i.UP, Vector2i(1, -1), Vector2i.RIGHT, Vector2i(1, 1), Vector2i.DOWN, Vector2i(-1, 1), Vector2i.LEFT, Vector2i(-1, -1)]
+const TERRAIN_MODES = {"edge16": 16, "blob47": 47}
+const TERRAIN_OUTSIDE = ["different", "same"]
+## The 47 reduced 8-neighbor masks in ascending order; tiles[i] of a blob47 terrain draws BLOB47_MASKS[i].
+const BLOB47_MASKS = [0, 1, 4, 5, 7, 16, 17, 20, 21, 23, 28, 29, 31, 64, 65, 68, 69, 71, 80, 81, 84, 85, 87, 92, 93, 95, 112, 113, 116, 117, 119, 124, 125, 127, 193, 197, 199, 209, 213, 215, 221, 223, 241, 245, 247, 253, 255]
 
 static func filled(count: int, value: Variant) -> Array:
 	var result: Array = []; result.resize(count); result.fill(value); return result
@@ -103,7 +109,9 @@ static func project_bytes(map: Dictionary) -> int:
 
 static func _single_bytes(map: Dictionary) -> int:
 	var cells: int = int(map.get("width", 0)) * int(map.get("height", 0))
-	var buffers: int = 1 + (layers(map).size() * 16) + (map.get("terrain_sets", []).size() * 16)
+	var buffers: int = 1 + (layers(map).size() * 16)
+	for terrain in map.get("terrain_sets", []):
+		if terrain is Dictionary and terrain.get("tiles") is Array: buffers += terrain.tiles.size()
 	return cells * buffers + str(map.get("tileset_png", "")).to_utf8_buffer().size()
 
 static func create_room(map: Dictionary, name: String = "") -> bool:
@@ -337,7 +345,11 @@ static func _valid_single(map: Dictionary, tile_count: int) -> bool:
 	for record in extra:
 		if not record.get("cells") is Array or record.cells.size() != count: return false
 	for terrain in terrains:
-		if not terrain is Dictionary or not terrain.get("name") is String or terrain.name.length() > 80 or not terrain.get("tiles") is Array or terrain.tiles.size() != 16: return false
+		if not terrain is Dictionary or not terrain.get("name") is String or terrain.name.length() > 80 or not terrain.get("tiles") is Array: return false
+		var mode = terrain.get("mode", "edge16")
+		if not mode is String or not TERRAIN_MODES.has(mode) or terrain.tiles.size() != TERRAIN_MODES[mode]: return false
+		var outside = terrain.get("outside", "different")
+		if not outside is String or not TERRAIN_OUTSIDE.has(outside): return false
 	for buffer in tile_buffers(map):
 		for value in buffer: if not integer(value) or value < -1 or value >= tile_count: return false
 	if map.has("active_layer") and (not integer(map.active_layer) or map.active_layer < 0 or map.active_layer > extra.size()): return false
@@ -406,11 +418,39 @@ static func update_terrain(map: Dictionary, layer_index: int, p: Vector2i) -> vo
 	var idx := p.y * int(map.width) + p.x
 	var kind := int(terrain[idx])
 	if kind < 0: return
+	var definition: Dictionary = map.terrain_sets[kind]
+	var outside_matches: bool = definition.get("outside", "different") == "same"
+	var blob: bool = definition.get("mode", "edge16") == "blob47"
+	var directions: Array = NEIGHBORS_8 if blob else NEIGHBORS
 	var mask: int = 0
-	for i in 4:
-		var q: Vector2i = p + NEIGHBORS[i]
-		if inside(map, q) and terrain[q.y * int(map.width) + q.x] == kind: mask |= 1 << i
-	cells(map, layer_index)[idx] = map.terrain_sets[kind].tiles[mask]
+	for i in directions.size():
+		var q: Vector2i = p + directions[i]
+		var matches: bool = outside_matches
+		if inside(map, q): matches = terrain[q.y * int(map.width) + q.x] == kind
+		if matches: mask |= 1 << i
+	cells(map, layer_index)[idx] = definition.tiles[BLOB47_MASKS.find(blob47_reduce(mask)) if blob else mask]
+
+## Drops corner bits whose two adjacent sides are not both set, leaving one of the 47 BLOB47_MASKS.
+static func blob47_reduce(mask: int) -> int:
+	var result: int = mask & 0b01010101
+	for corner in [1, 3, 5, 7]:
+		var sides: int = (1 << (corner - 1)) | (1 << ((corner + 1) % 8))
+		if (mask & (1 << corner)) != 0 and (mask & sides) == sides: result |= 1 << corner
+	return result
+
+## One 16 px cell per blob47 tile, filled in reading order (16 per row). Each cell draws the 3×3 neighborhood:
+## dark blocks are neighbors that must match, light blocks must not, and the white center is the tile itself.
+static func blob47_guide() -> Image:
+	var image := Image.create(16 * 16, 3 * 16, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var blocks := [Vector2i(1, 0), Vector2i(2, 0), Vector2i(2, 1), Vector2i(2, 2), Vector2i(1, 2), Vector2i(0, 2), Vector2i(0, 1), Vector2i(0, 0)]
+	for index in BLOB47_MASKS.size():
+		var origin := Vector2i(index % 16, int(index / 16)) * 16 + Vector2i(2, 2)
+		for bit in 8:
+			var color := Color8(32, 32, 32) if BLOB47_MASKS[index] & (1 << bit) else Color8(192, 192, 192)
+			image.fill_rect(Rect2i(origin + blocks[bit] * 4, Vector2i(4, 4)), color)
+		image.fill_rect(Rect2i(origin + Vector2i(4, 4), Vector2i(4, 4)), Color.WHITE)
+	return image
 
 static func paint(map: Dictionary, p: Vector2i, mode: String, value: int, erase: bool, light: Dictionary = {}) -> bool:
 	if not inside(map, p): return false
@@ -423,7 +463,7 @@ static func paint(map: Dictionary, p: Vector2i, mode: String, value: int, erase:
 			layer.terrain[index] = value if mode == "Terreno" and not erase else -1
 			cells(map)[index] = -1 if erase else value
 			update_terrain(map, int(map.active_layer), p)
-			for delta in NEIGHBORS: update_terrain(map, int(map.active_layer), p + delta)
+			for delta in NEIGHBORS_8: update_terrain(map, int(map.active_layer), p + delta)
 		"Colisão":
 			if not erase and (door_at(map, p) or connection_at(map, str(map.rooms[int(map.active_room)].id), p)): return false
 			map.collision[index] = not erase

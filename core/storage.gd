@@ -509,6 +509,7 @@ func _export_map_scene(doc: RefCounted, folder: String, room_id: String = "", ro
 	source.texture_region_size = Vector2i(24, 24)
 	for i in images.size(): source.create_tile(Vector2i(i % 16, int(i / 16)))
 	tile_set.add_source(source, 0)
+	_add_terrain_sets(tile_set, source, doc.map_data, images.size())
 	var ambient := CanvasModulate.new()
 	ambient.name = "AmbientLight"
 	ambient.color = Color(str(doc.map_data.get("ambient_color", "#ffffff")))
@@ -594,6 +595,29 @@ func _export_map_scene(doc: RefCounted, folder: String, room_id: String = "", ro
 	if result == OK: result = ResourceSaver.save(scene, folder.path_join("map.tscn"))
 	root.free()
 	return result
+
+func _add_terrain_sets(tile_set: TileSet, source: TileSetAtlasSource, map: Dictionary, tile_count: int) -> void:
+	var claimed := {}
+	var neighbors := [TileSet.CELL_NEIGHBOR_TOP_SIDE, TileSet.CELL_NEIGHBOR_TOP_RIGHT_CORNER, TileSet.CELL_NEIGHBOR_RIGHT_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER, TileSet.CELL_NEIGHBOR_BOTTOM_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_LEFT_CORNER, TileSet.CELL_NEIGHBOR_LEFT_SIDE, TileSet.CELL_NEIGHBOR_TOP_LEFT_CORNER]
+	for set_index in map.terrain_sets.size():
+		var definition: Dictionary = map.terrain_sets[set_index]
+		var blob: bool = definition.get("mode", "edge16") == "blob47"
+		tile_set.add_terrain_set()
+		tile_set.set_terrain_set_mode(set_index, TileSet.TERRAIN_MODE_MATCH_CORNERS_AND_SIDES if blob else TileSet.TERRAIN_MODE_MATCH_SIDES)
+		tile_set.add_terrain(set_index)
+		tile_set.set_terrain_name(set_index, 0, str(definition.name))
+		tile_set.set_terrain_color(set_index, 0, Color.from_hsv(float(set_index) / 16.0, 0.6, 0.9))
+		for position in definition.tiles.size():
+			var tile := int(definition.tiles[position])
+			if tile < 0 or tile >= tile_count: continue
+			if claimed.has(tile): printerr("Terrain tile shared by two terrains skipped in TileSet: ", tile); continue
+			claimed[tile] = true
+			var mask: int = World.BLOB47_MASKS[position] if blob else position
+			var data := source.get_tile_data(Vector2i(tile % 16, int(tile / 16)), 0)
+			data.terrain_set = set_index
+			data.terrain = 0
+			for bit in (8 if blob else 4):
+				if mask & (1 << bit): data.set_terrain_peering_bit(neighbors[bit if blob else bit * 2], 0)
 
 func _add_door_area(root: Node2D, node_name: String, title: String, position: Vector2, destination: Vector2, target_scene: String = "") -> void:
 	var area := Area2D.new()
