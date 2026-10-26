@@ -244,6 +244,8 @@ static func _remove_tree(path: String) -> Error:
 	if not DirAccess.dir_exists_absolute(absolute): return OK
 	var directory := DirAccess.open(absolute)
 	if directory == null: return DirAccess.get_open_error()
+	# Dot entries such as .rollback are hidden on Linux and macOS; without this the folder never empties.
+	directory.include_hidden = true
 	for filename in directory.get_files():
 		var remove_file := DirAccess.remove_absolute(absolute.path_join(filename))
 		if remove_file != OK: return remove_file
