@@ -148,6 +148,12 @@ func _initialize() -> void:
 	var export_folder := ProjectSettings.globalize_path("user://sprite_effects_export")
 	expect(storage.export_all(doc, export_folder, "modular") == OK and FileAccess.file_exists(export_folder.path_join("modular_character.tscn")), "perfil modular exporta camadas de efeito")
 	expect(storage.export_all(doc, export_folder.path_join("seq"), "sequence") == OK, "perfil de sequência exporta o efeito composto")
+	var exported_metadata = Storage.read_json(export_folder.path_join("metadata.json"))
+	expect(exported_metadata is Dictionary and exported_metadata.get("effects", []).size() == 2 and exported_metadata.effects[0].type == "glow" and exported_metadata.effects[1].type == "flash" and not exported_metadata.effects[0].has("baseline"), "metadata.json exporta a receita do efeito sem hashes internos")
+	var exported_sequence = Storage.read_json(export_folder.path_join("seq").path_join("sequence.json"))
+	expect(exported_sequence is Dictionary and exported_sequence.get("effects", []).size() == 2, "sequence.json lista o efeito com a receita")
+	var modular_record = Storage.read_json(export_folder.path_join("modular.json"))
+	expect(modular_record is Dictionary and modular_record.layers[0].get("effect", {}).get("type", "") == "glow" and not modular_record.layers[0].effect.has("baseline"), "modular.json registra o efeito na camada exportada")
 
 	# Contracts
 	var bad := storage.encode(doc)

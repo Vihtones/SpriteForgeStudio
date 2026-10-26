@@ -9,6 +9,7 @@ const Precision = preload("res://core/precision.gd")
 const ClusterCleaner = preload("res://core/cluster_cleaner.gd")
 const MaterialRamps = preload("res://core/material_ramps.gd")
 const MaterialRecolor = preload("res://core/material_recolor.gd")
+const SpriteEffects = preload("res://core/sprite_effects.gd")
 const RigSegmentExtractor = preload("res://core/rig_segment_extractor.gd")
 const References = preload("res://core/reference_library.gd")
 const Plan = preload("res://core/production_plan.gd")
@@ -110,6 +111,7 @@ var precision = Precision.new()
 var cluster_cleaner = ClusterCleaner.new()
 var material_ramps = MaterialRamps.new()
 var material_recolor = MaterialRecolor.new()
+var sprite_effects = SpriteEffects.new()
 var rig_segment_extractor = RigSegmentExtractor.new()
 var rig_interpolator = RigInterpolator.new()
 var pose_retargeter = PoseRetargeter.new()
@@ -1367,6 +1369,7 @@ func build_editor() -> void:
 	)
 	button("↑", actions, func(): move_layer(1), "Subir na composição")
 	button("↓", actions, func(): move_layer(-1))
+	button("Efeito…", actions, open_sprite_effect_dialog, "Gera brilho, clarão ou partículas como camada de pixels. Pode regenerar a camada de efeito ativa.").name = "SpriteEffectButton"
 	layer_mask_status = label("Máscara de visibilidade da cel", side, 11)
 	var mask_actions := row(side)
 	button("Ocultar seleção", mask_actions, func(): edit_layer_visibility_mask("hide"), "Oculta a seleção somente nesta layer, direção e quadro, preservando os pixels originais.").name = "HideLayerSelection"
@@ -1908,7 +1911,7 @@ func refresh_all() -> void:
 	world.anim_frame = mini(world.anim_frame, doc.frames - 1)
 	if tabs.current_tab == 1: world.refresh(); refresh_world_controls()
 	layers_list.clear()
-	for l in doc.layers: layers_list.add_item(("● " if l.visible else "○ ") + l.name + (" [lock]" if l.locked else ""))
+	for l in doc.layers: layers_list.add_item(("● " if l.visible else "○ ") + l.name + (" [lock]" if l.locked else "") + (" [efeito]" if l.get("effect") is Dictionary else ""))
 	layers_list.select(doc.active_layer)
 	refresh_layer()
 	for child in palette_box.get_children(): child.free()
@@ -2859,6 +2862,177 @@ func open_material_recolor_dialog() -> void:
 	popup.canceled.connect(func(): popup.hide(); popup.queue_free())
 	add_child(popup)
 	popup.popup_centered(Vector2i(820, 420))
+
+func open_sprite_effect_dialog() -> void:
+	stop_playback()
+	canvas.cancel_gesture()
+	if doc.art.get("locked", false): notify("Art Lock impede gerar efeitos."); return
+	if doc.layers.is_empty(): notify("O documento não tem camadas."); return
+	var source_indices: Array = []
+	for index in doc.layers.size():
+		if not doc.layers[index].get("effect") is Dictionary: source_indices.append(index)
+	var ramp_names: Array = []
+	for ramp in doc.art.get("material_ramps", []):
+		if ramp is Dictionary and ramp.get("colors") is Array and not ramp.colors.is_empty(): ramp_names.append(str(ramp.get("name", "")))
+	var anchor_names: Array = doc.anchors.keys()
+	for name in ["shield_mount", "weapon_mount"]:
+		if not anchor_names.has(name): anchor_names.append(name)
+	var clip_names: Array = []
+	for clip in doc.animation.clips: clip_names.append(str(clip.name))
+	var active_is_effect: bool = doc.layers[doc.active_layer].get("effect") is Dictionary
+	var popup := ConfirmationDialog.new()
+	popup.title = "Gerar efeito"
+	var body := column(popup)
+	label("Brilho, clarão e partículas viram camadas de pixels com receita salva. Usam somente cores da paleta e respeitam seleção, máscaras e pixels protegidos. A prévia exige aceite humano.", body, 12)
+	var type_row := row(body)
+	label("Tipo", type_row)
+	var type_selector := OptionButton.new()
+	type_selector.name = "EffectType"
+	type_selector.add_item("Brilho (aura)", 0)
+	type_selector.add_item("Clarão (silhueta)", 1)
+	type_selector.add_item("Partículas", 2)
+	type_row.add_child(type_selector)
+	var source_row := row(body)
+	label("Camada-fonte", source_row)
+	var source_selector := OptionButton.new()
+	source_selector.name = "EffectSource"
+	for index in source_indices: source_selector.add_item(str(doc.layers[index].name), index)
+	source_row.add_child(source_selector)
+	var ramp_row := row(body)
+	label("Material", ramp_row)
+	var ramp_selector := OptionButton.new()
+	ramp_selector.name = "EffectRamp"
+	for ramp_index in ramp_names.size(): ramp_selector.add_item(str(ramp_names[ramp_index]), ramp_index)
+	ramp_row.add_child(ramp_selector)
+	var color_row := row(body)
+	label("Cor", color_row)
+	var color_selector := OptionButton.new()
+	color_selector.name = "EffectColor"
+	for palette_index in doc.palette.size():
+		var hex := str(doc.palette[palette_index])
+		color_selector.add_icon_item(ImageTexture.create_from_image(MaterialRamps.preview_strip([hex], 12, 12)), hex, palette_index)
+	color_row.add_child(color_selector)
+	var anchor_row := row(body)
+	label("Âncora", anchor_row)
+	var anchor_selector := OptionButton.new()
+	anchor_selector.name = "EffectAnchor"
+	for anchor_index in anchor_names.size(): anchor_selector.add_item(str(anchor_names[anchor_index]), anchor_index)
+	anchor_row.add_child(anchor_selector)
+	var clip_row := row(body)
+	label("Clip", clip_row)
+	var clip_selector := OptionButton.new()
+	clip_selector.name = "EffectClip"
+	for clip_index in clip_names.size(): clip_selector.add_item(str(clip_names[clip_index]), clip_index)
+	clip_row.add_child(clip_selector)
+	var frames_row := row(body)
+	label("Quadros (ex.: 0, 1, 2)", frames_row)
+	var frames_field := LineEdit.new()
+	frames_field.name = "EffectFrames"
+	var all_frames: PackedStringArray = []
+	for f in doc.frames: all_frames.append(str(f))
+	frames_field.text = ", ".join(all_frames)
+	frames_row.add_child(frames_field)
+	var params_row := row(body)
+	label("Raio / pulsar", params_row)
+	var radius := SpinBox.new()
+	radius.name = "EffectRadius"
+	radius.min_value = 1; radius.max_value = 4; radius.value = 2; radius.step = 1
+	params_row.add_child(radius)
+	var pulse := CheckBox.new()
+	pulse.name = "EffectPulse"
+	pulse.text = "Pulsar"
+	params_row.add_child(pulse)
+	var particles_row := row(body)
+	label("Quantidade / vida / seed", particles_row)
+	var count := SpinBox.new()
+	count.name = "EffectCount"
+	count.min_value = 1; count.max_value = 8; count.value = 3; count.step = 1
+	particles_row.add_child(count)
+	var life := SpinBox.new()
+	life.name = "EffectLife"
+	life.min_value = 1; life.max_value = 8; life.value = 4; life.step = 1
+	particles_row.add_child(life)
+	var seed_box := SpinBox.new()
+	seed_box.name = "EffectSeed"
+	seed_box.min_value = 0; seed_box.max_value = 2147483647; seed_box.value = 1; seed_box.step = 1
+	particles_row.add_child(seed_box)
+	var name_field := LineEdit.new()
+	name_field.name = "EffectLayerName"
+	name_field.placeholder_text = "Nome da camada (vazio usa o tipo)"
+	body.add_child(name_field)
+	var regenerate := CheckBox.new()
+	regenerate.name = "EffectRegenerate"
+	regenerate.text = "Regenerar a camada de efeito ativa (substitui a camada e mostra os retoques)"
+	regenerate.button_pressed = active_is_effect
+	regenerate.visible = active_is_effect
+	body.add_child(regenerate)
+	type_selector.select(0)
+	source_selector.select(0)
+	ramp_selector.select(0)
+	color_selector.select(0)
+	anchor_selector.select(0)
+	clip_selector.select(clampi(doc.animation.active, 0, maxi(0, clip_names.size() - 1)))
+	var update_fields := func():
+		var kind := type_selector.get_selected_id()
+		source_row.visible = kind != 2
+		ramp_row.visible = kind != 1
+		color_row.visible = kind == 1
+		anchor_row.visible = kind == 2
+		clip_row.visible = kind == 2
+		particles_row.visible = kind == 2
+		params_row.visible = kind == 0
+	type_selector.item_selected.connect(func(_index): update_fields.call())
+	update_fields.call()
+	var collect := func() -> Dictionary:
+		var kind := type_selector.get_selected_id()
+		var recipe := {"type": ["glow", "flash", "particles"][kind], "frames": []}
+		for part in frames_field.text.split(",", false):
+			var text := part.strip_edges()
+			if text.is_empty(): continue
+			if not text.is_valid_int(): return {"error": "Quadros devem ser números separados por vírgula."}
+			recipe.frames.append(int(text))
+		if kind != 2:
+			if source_selector.selected < 0 or source_selector.selected >= source_indices.size(): return {"error": "Escolha uma camada-fonte."}
+			recipe.source_layer_id = doc.layers[source_indices[source_selector.selected]].id
+		if kind != 1:
+			if ramp_selector.selected < 0 or ramp_selector.selected >= ramp_names.size(): return {"error": "Crie ou escolha uma rampa de material."}
+			recipe.ramp = ramp_names[ramp_selector.selected]
+		if kind == 0: recipe.params = {"radius": int(radius.value), "pulse": 1 if pulse.button_pressed else 0}
+		if kind == 1:
+			if color_selector.selected < 0: return {"error": "Escolha uma cor da paleta."}
+			recipe.color = str(doc.palette[color_selector.selected])
+		if kind == 2:
+			if anchor_selector.selected < 0 or clip_selector.selected < 0: return {"error": "Escolha âncora e clip."}
+			recipe.anchor = str(anchor_names[anchor_selector.selected])
+			recipe.clip = str(clip_names[clip_selector.selected])
+			recipe.seed = int(seed_box.value)
+			recipe.params = {"count": int(count.value), "life": int(life.value)}
+		var target := str(doc.layers[doc.active_layer].id) if regenerate.visible and regenerate.button_pressed else ""
+		return {"recipe": recipe, "target": target, "name": name_field.text.strip_edges()}
+	popup.confirmed.connect(func():
+		popup.hide()
+		popup.queue_free()
+		var collected: Dictionary = collect.call()
+		if collected.has("error"): notify(str(collected.error)); return
+		var proposal: Dictionary = sprite_effects.build(doc, collected.recipe, collected.target)
+		if not proposal.get("ok", false): notify(str(proposal.get("message", "Efeito recusado."))); return
+		var preview_doc: RefCounted = doc.detached_copy()
+		sprite_effects.apply(preview_doc, sprite_effects.build(preview_doc, collected.recipe, collected.target), collected.name)
+		var note := "%s • %d cels alteradas • %d cels com retoque manual serão substituídas. Eventos fx_start e fx_end são gravados. A prévia mostra o quadro e a direção atuais. A alteração invalida aprovações artísticas." % [str(proposal.effect.type), proposal.changed_cels, proposal.retouched_cels.size()]
+		show_comparison("Prévia de efeito · " + _effect_label(str(proposal.effect.type)), doc.composite(), preview_doc.composite(), note, func():
+			if not sprite_effects.apply(doc, proposal, collected.name):
+				notify("Documento, camadas ou efeito mudou; a proposta foi descartada.")
+				return
+			edited()
+			notify("Efeito aplicado. Ctrl+Z desfaz a camada, os eventos e as aprovações.")
+		)
+	)
+	popup.canceled.connect(func(): popup.hide(); popup.queue_free())
+	add_child(popup)
+	popup.popup_centered(Vector2i(820, 640))
+
+func _effect_label(kind: String) -> String:
+	return {"glow": "Brilho", "flash": "Clarão", "particles": "Partículas"}.get(kind, kind)
 
 func open_rig_segment_extractor() -> void:
 	stop_playback()
