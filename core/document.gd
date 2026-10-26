@@ -609,7 +609,17 @@ func remap_frames(changed: int, insert: bool) -> void:
 			durations[str(f + ((1 if insert else -1) if f > changed else 0))] = c.durations_ms[key]
 		c.durations_ms = durations
 	var remap_targets: Array = [rig.anchors, rig.depth, rig.get("offsets", {}), rig.get("rotations", {}), rig.get("protected_pixels", {}), animation.events, animation.hitboxes]
-	for layer in layers: remap_targets.append(layer.get("visibility_masks", {}))
+	for layer in layers:
+		remap_targets.append(layer.get("visibility_masks", {}))
+		if layer.get("effect") is Dictionary:
+			remap_targets.append(layer.effect.get("baseline", {}))
+			var effect_frames: Array = []
+			for f in layer.effect.get("frames", []):
+				if not insert and int(f) == changed: continue
+				effect_frames.append(int(f) + ((1 if insert else -1) if int(f) > changed else 0))
+				if insert and int(f) == changed: effect_frames.append(changed + 1)
+			if effect_frames.is_empty(): layer.erase("effect")
+			else: layer.effect.frames = effect_frames
 	for target in remap_targets:
 		var mapped := {}
 		for key in target:
@@ -618,7 +628,7 @@ func remap_frames(changed: int, insert: bool) -> void:
 			if not insert and f == changed: continue
 			var next: int = f + ((1 if insert else -1) if f > changed else 0)
 			mapped[parts[0] + ":" + str(next)] = target[key]
-			if insert and f == changed: mapped[parts[0] + ":" + str(changed + 1)] = target[key].duplicate(true)
+			if insert and f == changed: mapped[parts[0] + ":" + str(changed + 1)] = target[key].duplicate(true) if target[key] is Dictionary or target[key] is Array else target[key]
 		target.clear()
 		target.merge(mapped)
 

@@ -122,6 +122,14 @@ func load_document(path: String) -> RefCounted:
 		var layer: Dictionary = l.duplicate(true)
 		for indices in layer.get("visibility_masks", {}).values():
 			for index in indices.size(): indices[index] = int(indices[index])
+		if layer.get("effect") is Dictionary:
+			# JSON numbers load as floats; effect frames and integer params are indices/counts.
+			layer.effect.version = int(layer.effect.version)
+			for index in layer.effect.frames.size(): layer.effect.frames[index] = int(layer.effect.frames[index])
+			if layer.effect.has("seed"): layer.effect.seed = int(layer.effect.seed)
+			var bounds_by_name: Dictionary = preload("res://core/sprite_effects.gd").PARAMS[layer.effect.type]
+			for name in layer.effect.params:
+				if bounds_by_name[name][0] is int: layer.effect.params[name] = int(layer.effect.params[name])
 		if not layer.has("id"): layer.id = Crypto.new().generate_random_bytes(8).hex_encode()
 		if not layer.has("asymmetric"): layer.asymmetric = false
 		layer.pivot = layer.get("pivot", layer.get("anchor", "feet"))
