@@ -1,0 +1,242 @@
+[
+  {
+    "script": "tests/run_tests.gd",
+    "log": "latest.log",
+    "report": "report.json"
+  },
+  {
+    "script": "tests/workspace_tests.gd",
+    "log": "workspace-latest.log",
+    "report": "workspace-report.json"
+  },
+  {
+    "script": "tests/automation_tests.gd",
+    "log": "automation-latest.log",
+    "report": "automation-report.json"
+  },
+  {
+    "script": "tests/world_tests.gd",
+    "log": "world-latest.log",
+    "report": "world-report.json"
+  },
+  {
+    "script": "tests/animation_proof_tests.gd",
+    "log": "animation-proof-latest.log",
+    "report": "animation-proof-report.json"
+  },
+  {
+    "script": "tests/animation_candidate_v6_tests.gd",
+    "log": "animation-v6-latest.log",
+    "report": "animation-v6-report.json"
+  },
+  {
+    "script": "tests/canvas_resizer_tests.gd",
+    "log": "canvas-resizer-latest.log",
+    "report": "canvas-resizer-report.json"
+  },
+  {
+    "script": "tests/animation_candidate_v7_scale_tests.gd",
+    "log": "animation-v7-scale-latest.log",
+    "report": "animation-v7-scale-report.json"
+  },
+  {
+    "script": "tests/animation_synthesizer_tests.gd",
+    "log": "animation-synthesizer-latest.log",
+    "report": "animation-synthesizer-report.json"
+  },
+  {
+    "script": "tests/animation_candidate_v8_tests.gd",
+    "log": "animation-v8-latest.log",
+    "report": "animation-v8-report.json"
+  },
+  {
+    "script": "tests/animation_candidate_v9_tests.gd",
+    "log": "animation-v9-latest.log",
+    "report": "animation-v9-report.json"
+  },
+  {
+    "script": "tests/hyperlearn_tests.gd",
+    "log": "hyperlearn-latest.log",
+    "report": "hyperlearn-report.json"
+  },
+  {
+    "script": "tests/hyperlearn_panel_ui_tests.gd",
+    "log": "hyperlearn-panel-ui-latest.log",
+    "report": "hyperlearn-panel-ui-report.json"
+  },
+  {
+    "script": "tests/clip_sequence_tests.gd",
+    "log": "clip-sequence-latest.log",
+    "report": "clip-sequence-report.json"
+  },
+  {
+    "script": "tests/library_review_tests.gd",
+    "log": "library-review-latest.log",
+    "report": "library-review-report.json"
+  },
+  {
+    "script": "tests/bleeding_tests.gd",
+    "log": "bleeding-latest.log",
+    "report": "bleeding-report.json"
+  },
+  {
+    "script": "tests/bleeding_runtime_tests.gd",
+    "log": "bleeding-runtime-latest.log",
+    "report": "bleeding-runtime-report.json"
+  },
+  {
+    "script": "tests/lpc_import_flow_tests.gd",
+    "log": "lpc-import-flow-latest.log",
+    "report": "lpc-import-flow-report.json"
+  },
+  {
+    "script": "tests/rig_interpolator_tests.gd",
+    "log": "rig-interpolator-latest.log",
+    "report": "rig-interpolator-report.json"
+  },
+  {
+    "script": "tests/rig_interpolator_ui_tests.gd",
+    "log": "rig-interpolator-ui-latest.log",
+    "report": "rig-interpolator-ui-report.json"
+  },
+  {
+    "script": "tests/pose_retargeter_tests.gd",
+    "log": "pose-retargeter-latest.log",
+    "report": "pose-retargeter-report.json"
+  },
+  {
+    "script": "tests/pose_retargeter_ui_tests.gd",
+    "log": "pose-retargeter-ui-latest.log",
+    "report": "pose-retargeter-ui-report.json"
+  },
+  {
+    "script": "tests/inter_document_retargeter_tests.gd",
+    "log": "inter-document-retargeter-latest.log",
+    "report": "inter-document-retargeter-report.json"
+  },
+  {
+    "script": "tests/inter_document_retargeter_ui_tests.gd",
+    "log": "inter-document-retargeter-ui-latest.log",
+    "report": "inter-document-retargeter-ui-report.json"
+  },
+  {
+    "script": "tests/rig_pose_baker_tests.gd",
+    "log": "rig-pose-baker-latest.log",
+    "report": "rig-pose-baker-report.json"
+  },
+  {
+    "script": "tests/rig_pose_baker_ui_tests.gd",
+    "log": "rig-pose-baker-ui-latest.log",
+    "report": "rig-pose-baker-ui-report.json"
+  },
+  {
+    "script": "tests/raster_inbetweener_tests.gd",
+    "log": "raster-inbetweener-latest.log",
+    "report": "raster-inbetweener-report.json"
+  },
+  {
+    "script": "tests/raster_inbetweener_ui_tests.gd",
+    "log": "raster-inbetweener-ui-latest.log",
+    "report": "raster-inbetweener-ui-report.json"
+  },
+  {
+    "script": "tests/three_d_motion_tests.gd",
+    "log": "three-d-motion-latest.log",
+    "report": "three-d-motion-report.json"
+  },
+  {
+    "script": "tests/three_d_motion_ui_tests.gd",
+    "log": "three-d-motion-ui-latest.log",
+    "report": "three-d-motion-ui-report.json"
+  },
+  {
+    "script": "tests/imported_bone_rig_tests.gd",
+    "log": "imported-bone-rig-latest.log",
+    "report": "imported-bone-rig-report.json"
+  },
+  {
+    "script": "tests/imported_equipment_sockets_tests.gd",
+    "log": "imported-equipment-sockets-latest.log",
+    "report": "imported-equipment-sockets-report.json"
+  },
+  {
+    "script": "tests/rigid_equipment_assets_tests.gd",
+    "log": "rigid-equipment-assets-latest.log",
+    "report": "rigid-equipment-assets-report.json"
+  },
+  {
+    "script": "tests/export_consumer_tests.gd",
+    "log": "export-consumer-latest.log",
+    "report": "export-consumer-report.json"
+  },
+  {
+    "script": "tests/export_profiles_ui_tests.gd",
+    "log": "export-profiles-ui-latest.log",
+    "report": "export-profiles-ui-report.json"
+  },
+  {
+    "script": "tests/png_sequence_tests.gd",
+    "log": "png-sequence-latest.log",
+    "report": "png-sequence-report.json"
+  },
+  {
+    "script": "tests/layer_masks_tests.gd",
+    "log": "layer-masks-latest.log",
+    "report": "layer-masks-report.json"
+  },
+  {
+    "script": "tests/pixel_shapes_tests.gd",
+    "log": "pixel-shapes-latest.log",
+    "report": "pixel-shapes-report.json"
+  },
+  {
+    "script": "tests/pixel_shapes_ui_tests.gd",
+    "log": "pixel-shapes-ui-latest.log",
+    "report": "pixel-shapes-ui-report.json"
+  },
+  {
+    "script": "tests/cluster_cleaner_tests.gd",
+    "log": "cluster-cleaner-latest.log",
+    "report": "cluster-cleaner-report.json"
+  },
+  {
+    "script": "tests/cluster_cleaner_ui_tests.gd",
+    "log": "cluster-cleaner-ui-latest.log",
+    "report": "cluster-cleaner-ui-report.json"
+  },
+  {
+    "script": "tests/material_ramp_tests.gd",
+    "log": "material-ramp-latest.log",
+    "report": "material-ramp-report.json"
+  },
+  {
+    "script": "tests/material_ramp_ui_tests.gd",
+    "log": "material-ramp-ui-latest.log",
+    "report": "material-ramp-ui-report.json"
+  },
+  {
+    "script": "tests/material_recolor_tests.gd",
+    "log": "material-recolor-latest.log",
+    "report": "material-recolor-report.json"
+  },
+  {
+    "script": "tests/material_recolor_ui_tests.gd",
+    "log": "material-recolor-ui-latest.log",
+    "report": "material-recolor-ui-report.json"
+  },
+  {
+    "script": "tests/rig_segment_extractor_tests.gd",
+    "log": "rig-segment-extractor-latest.log",
+    "report": "rig-segment-extractor-report.json"
+  },
+  {
+    "script": "tests/rig_segment_extractor_ui_tests.gd",
+    "log": "rig-segment-extractor-ui-latest.log",
+    "report": "rig-segment-extractor-ui-report.json"
+  },
+  {
+    "script": "tests/production_recipe_tests.gd",
+    "log": "production-recipe-latest.log",
+    "report": "production-recipe-report.json"
+  }
+]

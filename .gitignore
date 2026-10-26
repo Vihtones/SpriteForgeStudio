@@ -1,0 +1,17 @@
+.godot/
+test_results/
+*.tmp
+*.bak
+__pycache__/
+.env
+.env.*
+!.env.example
+
+# Local inference runtime binaries are optional and are not source code.
+vendor/**/*.dll
+vendor/**/*.exe
+
+# Generated art studies and repeated animation candidates are local review outputs.
+examples/animation_candidate_*/
+examples/animation_proof/
+examples/sentinela_turnaround_*/

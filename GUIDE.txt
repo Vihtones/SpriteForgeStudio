@@ -1,0 +1,40 @@
+[font_size=26]Sua oficina, do pixel à cena — 0.31[/font_size]
+
+Use **Demo animada** para abrir a origem e **Estudo 64×64** para revisar a versão reduzida conforme o quadro-base provisório; a nova escala não herda aprovações artísticas.
+
+1. Escolha direção N/NE/E/SE/S/SW/W/NW, camada e frame. Direito apaga; scroll aproxima; botão central move.
+2. Máscara seleciona região. Copiar/colar, flip, rotação quadrada e setas operam na região. Proteger região impede pintura/correção; desproteger libera a cel.
+3. Rig: ligue a opção Rig para ver 15 articulações e segmentos-guia. Escolha o ponto na lateral e use a ferramenta Âncora para posicioná-lo; a pose fica salva por direção/frame. + Articulação cria um ponto próprio. Em cada camada, escolha o pivô e ajuste o ângulo para posar partes/equipamentos; a rotação é rígida, usa vizinho mais próximo e deixa o cel original intacto. Camadas de equipamento também mantêm offset e profundidade por pose. Não há deformação ou interpolação óssea.
+4. Crie clips sobre frames existentes. A timeline mostra miniaturas por camada, duração em ms e marcadores de evento/hitbox; clique para selecionar o frame. Ajuste Loop, Reverso e velocidade. Play/Pause, Stop e frame a frame controlam o clip. Casca de cebola mostra o anterior em magenta e o próximo em ciano.
+5. Importar spritesheet recorta uma grade de PNG sem redimensionar pixels. Informe colunas, início do frame, margens e espaçamento; cada célula deve ter exatamente as dimensões do documento. Escolha uma linha para a direção ativa ou oito linhas ordenadas N, NE, E, SE, S, SW, W, NW. Toda a importação vira uma operação única de Undo e respeita Art Lock e camada bloqueada.
+6. Demonstração animada da Sentinela: abra `examples/animation_candidate_v6/sentinela-v6.sfs.json` para editar. São três clips (idle respirando, pulo e ataque), seis quadros por clip, nas oito direções. `examples/animation_candidate_v6/preview.tscn` mostra os três clips lado a lado com direção, Play/Pause e avanço de quadro. A aprovação do ataque N (seis poses) e do ataque S (quadro 3) é específica; as demais poses e o personagem completo aguardam revisão. Ver `examples/animation_candidate_v6/README.md`.
+7. Hitbox = máscara e Eventos registram dados por direção/frame. Não executam dano automaticamente.
+8. Revisar correção cria proposta antes/depois. Aceitar modifica a arte; rejeitar preserva o original. Ctrl+Z reverte.
+9. Referências têm estados e aprovação parcial por característica. Rejeição invalida dependentes sem apagar o histórico. Art Lock congela diretrizes e referências.
+10. Qualidade e versões separa diagnóstico técnico de aprovação humana. Notas ≥85 geral e ≥75 por critério, revisor e confirmação preservam snapshot na biblioteca.
+11. World Studio: mapa de 1×1 a 128×128, Solo mais sete camadas, opacidade, ordem e bloqueio. Lápis/balde/retângulo. Terrenos usam 16 tiles e vizinhos N/E/S/W. Para interiores, selecione Porta, escolha um nome e clique em duas células livres para conectá-las. Na prévia, pressione E perto de uma das portas. Colisão, navegação, iluminação e conexões acompanham o mapa; Undo restaura.
+12. Exportar inicia tarefa em processo auxiliar. Acompanhe em Lotes: prioridade, progresso, pausa, cancelamento por etapa e retomada.
+13. Acervo Arton: escolha uma das três famílias e importe. Em Lotes, selecione a tarefa concluída e clique Abrir importação. A base mantém 256×256 e um frame estático. Colete é uma camada candidata, oculta inicialmente.
+
+[b]Salvar e recuperar[/b]
+Novo/Abrir criam abas independentes. Ctrl+Tab alterna, Ctrl+W fecha, Ctrl+S salva, Ctrl+Shift+S escolhe outro destino. Salvar todos percorre as abas; cancelar aborta a sequência. Há até oito documentos, com 256 MiB de buffers RGBA somados (histórico e texturas usam memória adicional).
+Salvar e autosave gravam PNG/JSON em segundo plano; a cópia inicial de buffers ainda pode pausar brevemente. Autosave a cada 30 s; Recuperar sessão restaura os últimos checkpoints concluídos e a posição de edição. Backups .bak preservam a versão anterior. Histórico undo é volátil; versões aprovadas ficam separadas do cache. Ao sair, alterações pendentes oferecem salvar, descartar ou cancelar.
+Histórico mostra ações de undo. Enquadrar ajusta o canvas. Copiar/colar pixels funciona entre abas. Desenhar pausa Play; mudanças de frame ou aba cancelam gestos em andamento. Duração em ms prevalece sobre FPS quando definida para o frame.
+
+[b]Saídas[/b]
+PNG atual, spritesheet, metadata.json, character.tscn, animations.tres, map.tscn e tileset.tres. Mapa usa TileMapLayer, NavigationRegion2D, colisões e luzes Godot. Eventos/hitboxes são metadados.
+
+[b]Catálogo opcional[/b]
+Informe Python 3.11+ em Qualidade e versões para indexar metadados em SQLite. O serviço é local, sem rede. O editor funciona sem Python.
+
+[b]IA Assistida (opcional)[/b]
+Digite uma descrição e escolha o modelo, a qualidade e o fundo. Preparar geração abre uma confirmação para este pedido. Só o botão Autorizar uma chamada inicia a geração remota e pode gerar cobrança; não há consentimento persistente ou repetição automática. Configure OPENAI_API_KEY no ambiente. No projeto aberto pelo Godot, a chave também pode ficar em .env.local na raiz do workspace. A imagem PNG 1024×1024 aparece como prévia e só é exportada para outro local quando você escolher Salvar PNG como. Nenhuma edição no documento ativo é feita automaticamente. Sem chave ou conexão, o restante do editor funciona offline.
+
+[b]Automação local[/b]
+Escolha pastas separadas de entrada e saída na aba Automação e clique Aplicar e iniciar. Projetos .sfs.json estáveis são processados em cópias: diagnóstico de todas as cels, correção opcional de paleta, validação, exportação e relatório. Abrir candidato traz a cópia para uma nova aba. Não altera o original nem concede aprovação artística.
+Retomar ao abrir é opcional. O programa precisa permanecer aberto. Pausar interrompe novas tarefas; a atual termina, podendo ser cancelada em Lotes. Falhas de processo têm até três tentativas; validação inválida exige correção. Retire concluídos da fila e esqueça registros finalizados para liberar limites de 256 tarefas/2.048 registros. Esquecer permite nova execução.
+Somente o primeiro nível da pasta é observado. A geração opcional fica no painel IA Assistida; a automação prepara projetos já desenhados. Uso sem janela está documentado em docs/AUTOMACAO.md.
+
+[b]Limites reais[/b]
+Continuam ausentes edição de imagem por IA, modelos locais, ledger de custos, treinamento neural, anatomia automática, deformação/interpolação óssea, retargeting e vilarejo final. HyperLearn recupera regras explícitas de paleta. Graphify/Headroom permanecem experimentais. Não há áudio. A versão não fez chamadas pagas durante seu desenvolvimento.
+Documento Mestre SFS-MASTER-002 v2.0 incorporado. A matriz docs/CONFORMIDADE.md distingue recursos parciais e pendentes. Não se declara conclusão integral do produto.
