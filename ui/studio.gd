@@ -66,6 +66,8 @@ var world_controls: Control
 var queue: Node
 var tabs: TabContainer
 var status: Label
+## Message raised while the UI is still being built, shown once the status bar exists.
+var pending_status := ""
 var layers_list: ItemList
 var timeline_view: Control
 var direction_picker: OptionButton
@@ -381,7 +383,7 @@ func build_ui() -> void:
 		if index == tabs.get_child_count() - 2: _load_3d_motion_pose()
 		if index == tabs.get_child_count() - 1: refresh_hyperlearn()
 	)
-	status = label("", root, 13)
+	status = label(pending_status, root, 13)
 	dialog = FileDialog.new()
 	dialog.access = FileDialog.ACCESS_FILESYSTEM
 	dialog.use_native_dialog = false
@@ -2085,6 +2087,7 @@ func update_title() -> void:
 	if workspace != null: workspace.refresh_budgets()
 
 func notify(message: String) -> void:
+	if status == null: pending_status = message; return
 	status.text = message
 
 func _show_technical_report(report: Dictionary, title: String) -> void:
