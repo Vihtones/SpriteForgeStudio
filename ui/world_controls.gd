@@ -10,6 +10,9 @@ var width: SpinBox
 var height: SpinBox
 var terrain_list: OptionButton
 var terrain_name: LineEdit
+var terrain_mode: OptionButton
+var terrain_outside: CheckBox
+var terrain_button: Button
 var terrain_start: SpinBox
 var palette: GridContainer
 var doors_list: ItemList
@@ -120,13 +123,20 @@ func _ready() -> void:
 	var dimensions := row(); width = number(dimensions, 1, 128, 24); height = number(dimensions, 1, 128, 16)
 	var resize_button := Button.new(); resize_button.text = "Redimensionar"; add_child(resize_button)
 	resize_button.pressed.connect(func(): command.emit({"kind": "resize", "width": int(width.value), "height": int(height.value)}))
-	title("TERRENO — máscara N=1 E=2 S=4 W=8")
+	title("TERRENO — máscara N=1 E=2 S=4 W=8; blob N NE E SE S SW W NW")
 	terrain_list = OptionButton.new(); add_child(terrain_list)
 	terrain_list.item_selected.connect(func(index): if not syncing: command.emit({"kind": "terrain", "value": index}))
 	terrain_name = LineEdit.new(); terrain_name.placeholder_text = "Nome do terreno"; add_child(terrain_name)
+	terrain_mode = OptionButton.new(); terrain_mode.add_item("4 lados · 16 tiles"); terrain_mode.add_item("8 vizinhos · 47 tiles"); add_child(terrain_mode)
+	terrain_mode.item_selected.connect(func(index): _update_terrain_button())
+	terrain_outside = CheckBox.new(); terrain_outside.text = "Borda do mapa conta como terreno"; add_child(terrain_outside)
 	terrain_start = number(self, 0, 255, 0); terrain_start.prefix = "Primeiro tile: "
-	var terrain_button := Button.new(); terrain_button.text = "Criar terreno: 16 tiles consecutivos"; add_child(terrain_button)
-	terrain_button.pressed.connect(func(): command.emit({"kind": "add_terrain", "name": terrain_name.text, "start": int(terrain_start.value)}))
+	terrain_button = Button.new(); add_child(terrain_button)
+	terrain_button.pressed.connect(func():
+		var blob := terrain_mode.selected == 1
+		command.emit({"kind": "add_terrain", "name": terrain_name.text, "start": int(terrain_start.value), "mode": "blob47" if blob else "edge16", "outside": "same" if terrain_outside.button_pressed else "different"})
+	)
+	_update_terrain_button()
 	title("PALETA DE TILES — clique para escolher")
 	palette = GridContainer.new(); palette.columns = 5; add_child(palette)
 	title("PORTAS — conecte duas células livres")
@@ -143,6 +153,10 @@ func _ready() -> void:
 		if selected_connection >= 0: command.emit({"kind": "remove_connection", "index": selected_connection})
 		else: command.emit({"kind": "remove_door", "index": selected_door})
 	)
+
+func _update_terrain_button() -> void:
+	var count := 47 if terrain_mode.selected == 1 else 16
+	terrain_button.text = "Criar terreno: %d tiles consecutivos" % count
 
 func display(map: Dictionary, textures: Array, tile: int, terrain: int) -> void:
 	syncing = true

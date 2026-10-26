@@ -381,6 +381,17 @@ func ui_checks() -> void:
 	expect(ui.doc.map_data.ambient_color == "#43526a" and World.valid(ui.doc.map_data, ui.doc.tile_images().size()), "ambient light inspector applies valid room tone")
 	ui.undo()
 	expect(ui.doc.map_data.ambient_color == "#ffffff", "Undo restores the previous ambient room color")
+	var five_tiles: Array = ui.world.textures
+	ui.world.textures = []
+	for i in 48: ui.world.textures.append(ImageTexture.create_from_image(test_tile_image))
+	var terrains_before: int = ui.doc.map_data.terrain_sets.size()
+	ui.world_command({"kind": "add_terrain", "name": "Lago", "start": 2, "mode": "blob47", "outside": "same"})
+	expect(ui.doc.map_data.terrain_sets.size() == terrains_before, "panel refuses a blob47 terrain without 47 consecutive tiles")
+	ui.world_command({"kind": "add_terrain", "name": "Grama", "start": 0, "mode": "edge16", "outside": "same"})
+	var grass: Dictionary = ui.doc.map_data.terrain_sets[ui.doc.map_data.terrain_sets.size() - 1]
+	expect(grass.name == "Grama" and grass.outside == "same" and not grass.has("mode") and grass.tiles.size() == 16, "panel edge16 terrain keeps the legacy shape and border rule")
+	ui.undo()
+	ui.world.textures = five_tiles
 	var proof_path := ProjectSettings.globalize_path("res://examples/animation_proof/sentinela.sfs.json")
 	var proof_doc = Store.new().load_document(proof_path)
 	ui.world.doc = proof_doc
