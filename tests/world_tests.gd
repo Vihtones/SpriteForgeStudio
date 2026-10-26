@@ -92,6 +92,26 @@ func run() -> void:
 	expect(World.metadata(map).terrain[27] == -1 and World.cells(map)[39] == 0, "manual tile clears terrain membership and adjacent mask")
 	World.resize(map, 4, 4)
 	expect(World.cells(map)[15] == 0 and World.valid(map, 32), "crop recalculates terrain edges and keeps valid contract")
+	var export_map := Doc.new()
+	World.resize(export_map.map_data, 8, 8)
+	var export_tiles := Image.create(256, 48, false, Image.FORMAT_RGBA8)
+	export_tiles.fill(Color("39784c")); export_map.map_data.tileset_png = Marshalls.raw_to_base64(export_tiles.save_png_to_buffer())
+	export_map.map_data.terrain_sets.append({"name": "Lago", "mode": "blob47", "tiles": range(47)})
+	for y in range(3, 6):
+		for x in range(3, 6): World.paint(export_map.map_data, Vector2i(x, y), "Terreno", 0, false)
+	var export_folder := folder.path_join("blob-export")
+	DirAccess.make_dir_recursive_absolute(export_folder)
+	expect(Store.new()._export_map_scene(export_map, export_folder) == OK, "blob47 terrain exports a map scene")
+	var export_set: TileSet = ResourceLoader.load(export_folder.path_join("tileset.tres"), "TileSet", ResourceLoader.CACHE_MODE_IGNORE)
+	var export_source := export_set.get_source(0) as TileSetAtlasSource
+	var center_data := export_source.get_tile_data(Vector2i(14, 2), 0)
+	var all_neighbors := [TileSet.CELL_NEIGHBOR_TOP_SIDE, TileSet.CELL_NEIGHBOR_TOP_RIGHT_CORNER, TileSet.CELL_NEIGHBOR_RIGHT_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER, TileSet.CELL_NEIGHBOR_BOTTOM_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_LEFT_CORNER, TileSet.CELL_NEIGHBOR_LEFT_SIDE, TileSet.CELL_NEIGHBOR_TOP_LEFT_CORNER]
+	expect(export_set.get_terrain_sets_count() == 1 and export_set.get_terrain_set_mode(0) == TileSet.TERRAIN_MODE_MATCH_CORNERS_AND_SIDES, "blob47 terrain exports a corner-and-side TileSet terrain set")
+	var all_bits_set := true
+	for bit in all_neighbors: all_bits_set = all_bits_set and center_data.get_terrain_peering_bit(bit) == 0
+	expect(center_data.terrain_set == 0 and all_bits_set, "interior blob47 tile carries all eight neighbor bits in the TileSet")
+	var empty_data := export_source.get_tile_data(Vector2i(0, 0), 0)
+	expect(empty_data.terrain_set == 0 and empty_data.get_terrain_peering_bit(TileSet.CELL_NEIGHBOR_TOP_SIDE) == -1, "isolated blob47 tile carries no neighbor bits")
 	var reduced := {}
 	for mask in 256: reduced[World.blob47_reduce(mask)] = true
 	var reduced_masks: Array = reduced.keys(); reduced_masks.sort()
@@ -126,6 +146,10 @@ func run() -> void:
 	expect(not World.valid(blob_invalid, 47), "unknown terrain mode is rejected")
 	blob_invalid = blob_map.duplicate(true); blob_invalid.terrain_sets[1].outside = "wrap"
 	expect(not World.valid(blob_invalid, 47), "unknown terrain border rule is rejected")
+	var guide := World.blob47_guide()
+	expect(guide.get_size() == Vector2i(256, 48) and guide.get_pixel(7, 3) == Color8(192, 192, 192) and guide.get_pixel(231, 35) == Color8(32, 32, 32), "artist guide draws one 3x3 neighborhood per blob47 tile in reading order")
+	guide.save_png(ProjectSettings.globalize_path(folder.path_join("blob47-guide.png")))
+	var guide_large := guide.duplicate(); guide_large.resize(1024, 192, Image.INTERPOLATE_NEAREST); guide_large.save_png(ProjectSettings.globalize_path(folder.path_join("blob47-guide-4x.png")))
 	var invalid: Dictionary = map.duplicate(true); invalid.width = 4.5
 	expect(not World.valid(invalid, 32), "fractional dimensions are rejected")
 	invalid = map.duplicate(true); invalid.cells[0] = 1.25

@@ -438,6 +438,20 @@ static func blob47_reduce(mask: int) -> int:
 		if (mask & (1 << corner)) != 0 and (mask & sides) == sides: result |= 1 << corner
 	return result
 
+## One 16 px cell per blob47 tile, filled in reading order (16 per row). Each cell draws the 3×3 neighborhood:
+## dark blocks are neighbors that must match, light blocks must not, and the white center is the tile itself.
+static func blob47_guide() -> Image:
+	var image := Image.create(16 * 16, 3 * 16, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var blocks := [Vector2i(1, 0), Vector2i(2, 0), Vector2i(2, 1), Vector2i(2, 2), Vector2i(1, 2), Vector2i(0, 2), Vector2i(0, 1), Vector2i(0, 0)]
+	for index in BLOB47_MASKS.size():
+		var origin := Vector2i(index % 16, int(index / 16)) * 16 + Vector2i(2, 2)
+		for bit in 8:
+			var color := Color8(32, 32, 32) if BLOB47_MASKS[index] & (1 << bit) else Color8(192, 192, 192)
+			image.fill_rect(Rect2i(origin + blocks[bit] * 4, Vector2i(4, 4)), color)
+		image.fill_rect(Rect2i(origin + Vector2i(4, 4), Vector2i(4, 4)), Color.WHITE)
+	return image
+
 static func paint(map: Dictionary, p: Vector2i, mode: String, value: int, erase: bool, light: Dictionary = {}) -> bool:
 	if not inside(map, p): return false
 	var layer := metadata(map)
