@@ -24,6 +24,7 @@ const SpriteSheetImporter = preload("res://core/spritesheet_importer.gd")
 const CanvasResizer = preload("res://core/canvas_resizer.gd")
 const AnimationSynthesizer = preload("res://core/animation_synthesizer.gd")
 const RigInterpolator = preload("res://core/rig_interpolator.gd")
+const MotionCurves = preload("res://core/motion_curves.gd")
 const PoseRetargeter = preload("res://core/pose_retargeter.gd")
 const InterDocumentRetargeter = preload("res://core/inter_document_retargeter.gd")
 const RasterInbetweener = preload("res://core/raster_inbetweener.gd")
@@ -3269,13 +3270,28 @@ func interpolate_rig_dialog() -> void:
 	offset_keys.disabled = not bool(doc.layers[doc.active_layer].equipment)
 	var anchor_keys := check("Articulação selecionada: %s" % target_anchor, body, func(_value): pass)
 	anchor_keys.button_pressed = true
+	label("Curva de tempo entre as chaves", body, 12)
+	var curve_names: Array = ["Manter as curvas já salvas no clip"]
+	for preset in MotionCurves.PRESETS: curve_names.append(MotionCurves.label(preset))
+	var curve_picker := choice(curve_names, body, func(_index): pass)
+	curve_picker.name = "RigCurvePicker"
+	curve_picker.tooltip_text = "A curva escolhida passa a valer para os trechos preenchidos e fica salva no clip. Linear reproduz o comportamento anterior."
+	var timing_keys := check("Respeitar a duração de cada quadro", body, func(_value): pass)
+	timing_keys.name = "RigTimingByDuration"
+	timing_keys.button_pressed = false
+	timing_keys.tooltip_text = "Desmarcado, cada quadro conta igual, como nas versões anteriores."
 	dialog_window.confirmed.connect(func():
 		if doc.get_instance_id() != target_instance or doc.revision != target_revision or int(doc.animation.active) != target_clip or doc.direction != target_direction:
 			notify("Documento, clip ou direção mudou. Gere a prévia novamente.")
 			dialog_window.queue_free()
 			return
 		var channels := {"rotation": rotate_keys.button_pressed, "offset": offset_keys.button_pressed, "anchor": anchor_keys.button_pressed}
-		var proposal: Dictionary = rig_interpolator.build(doc, target_direction, target_clip, target_layer_id, target_anchor, channels)
+		var options := {"timing": "duration" if timing_keys.button_pressed else "frames"}
+		var curve_text := "curvas do clip"
+		if curve_picker.selected > 0:
+			options["curve"] = MotionCurves.PRESETS[curve_picker.selected - 1]
+			curve_text = MotionCurves.label(str(options.curve))
+		var proposal: Dictionary = rig_interpolator.build(doc, target_direction, target_clip, target_layer_id, target_anchor, channels, options)
 		if not proposal.get("ok", false):
 			notify(str(proposal.get("message", "Interpolação recusada.")))
 			dialog_window.queue_free()
@@ -3295,7 +3311,7 @@ func interpolate_rig_dialog() -> void:
 		dialog_window.hide()
 		dialog_window.queue_free()
 		show_comparison("Prévia da interpolação do rig", before, after,
-			str(proposal.message) + "\nCanais: " + ", ".join(selected_channels) + ".\nPrévia do quadro %d; articulações são guias e não alteram o raster." % (first_frame + 1),
+			str(proposal.message) + "\nCanais: " + ", ".join(selected_channels) + ".\nCurva: %s; tempo %s." % [curve_text, "pela duração dos quadros" if options.timing == "duration" else "uniforme por quadro"] + "\nPrévia do quadro %d; articulações são guias e não alteram o raster." % (first_frame + 1),
 			func():
 				if doc.get_instance_id() != target_instance or not rig_interpolator.apply(doc, proposal):
 					notify("A proposta ficou desatualizada; nenhuma pose foi aplicada.")
@@ -3306,7 +3322,7 @@ func interpolate_rig_dialog() -> void:
 	)
 	dialog_window.canceled.connect(dialog_window.queue_free)
 	add_child(dialog_window)
-	dialog_window.popup_centered(Vector2i(540, 300))
+	dialog_window.popup_centered(Vector2i(540, 380))
 
 func add_joint_dialog() -> void:
 	stop_playback()
