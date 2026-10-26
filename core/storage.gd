@@ -122,6 +122,14 @@ func load_document(path: String) -> RefCounted:
 		var layer: Dictionary = l.duplicate(true)
 		for indices in layer.get("visibility_masks", {}).values():
 			for index in indices.size(): indices[index] = int(indices[index])
+		if layer.get("effect") is Dictionary:
+			# JSON numbers load as floats; effect frames and integer params are indices/counts.
+			layer.effect.version = int(layer.effect.version)
+			for index in layer.effect.frames.size(): layer.effect.frames[index] = int(layer.effect.frames[index])
+			if layer.effect.has("seed"): layer.effect.seed = int(layer.effect.seed)
+			var bounds_by_name: Dictionary = preload("res://core/sprite_effects.gd").PARAMS[layer.effect.type]
+			for name in layer.effect.params:
+				if bounds_by_name[name][0] is int: layer.effect.params[name] = int(layer.effect.params[name])
 		if not layer.has("id"): layer.id = Crypto.new().generate_random_bytes(8).hex_encode()
 		if not layer.has("asymmetric"): layer.asymmetric = false
 		layer.pivot = layer.get("pivot", layer.get("anchor", "feet"))
@@ -251,6 +259,7 @@ func _export_png_sequence(doc: RefCounted, folder: String) -> Error:
 	manifest["family"] = str(doc.rig.family)
 	manifest["palette"] = doc.palette.duplicate()
 	manifest["skeleton"] = doc.rig.get("skeleton", []).duplicate(true)
+	manifest["effects"] = effect_records(doc)
 	for direction in 8:
 		var relative_folder: String = "frames/" + str(Doc.DIRECTIONS[direction])
 		var result := DirAccess.make_dir_recursive_absolute(folder.path_join(relative_folder))
@@ -279,6 +288,7 @@ func _export_character_package(doc: RefCounted, folder: String, profile: String)
 	var frame_textures: Dictionary = {}
 	var metadata := {"schema": 3, "image": "spritesheet.png", "width": doc.width, "height": doc.height, "fps": doc.fps, "directions": Doc.DIRECTIONS, "anchors": doc.anchors, "rig": doc.rig, "animation": doc.animation, "manifest": doc.manifest, "frames": [], "map": doc.map_data}
 	metadata["source_assets"] = doc.art.get("source_assets", []).duplicate(true)
+	metadata["effects"] = effect_records(doc)
 	metadata["direction_coverage"] = doc.art.get("direction_coverage", Doc.DIRECTIONS).duplicate()
 	metadata["three_d_motion"] = {
 		"rig": doc.art.get("three_d_motion_rig", {}).duplicate(true),
@@ -356,6 +366,20 @@ func _export_character_package(doc: RefCounted, folder: String, profile: String)
 		if result != OK: return result
 	return OK
 
+## Effect recipes are exported without the baseline hashes, which only serve regeneration inside the editor.
+static func effect_record(layer: Dictionary) -> Dictionary:
+	var record: Dictionary = layer.effect.duplicate(true)
+	record.erase("baseline")
+	record["layer_id"] = str(layer.id)
+	record["name"] = str(layer.name)
+	return record
+
+static func effect_records(doc: RefCounted) -> Array:
+	var records: Array = []
+	for layer in doc.layers:
+		if layer.get("effect") is Dictionary: records.append(effect_record(layer))
+	return records
+
 func _write_credits(doc: RefCounted, folder: String) -> Error:
 	var credits := "Sprite Forge Studio — procedência dos recursos importados\n\n"
 	for source in doc.art.get("source_assets", []):
@@ -393,6 +417,7 @@ func _export_modular_character(doc: RefCounted, folder: String) -> Error:
 			for frame_index in doc.frames:
 				var cel: Image = doc.composite_layer(layer_index, direction, frame_index, true)
 				atlas.blit_rect(cel, Rect2i(0, 0, doc.width, doc.height), Vector2i(frame_index * doc.width, direction * doc.height))
+		if layer.get("effect") is Dictionary: layer_record["effect"] = effect_record(layer)
 		var texture_path := folder.path_join(str(layer_record.texture))
 		result = atlas.save_png(texture_path)
 		if result != OK: root.free(); return result
@@ -411,6 +436,7 @@ func _export_modular_character(doc: RefCounted, folder: String) -> Error:
 		sprite.set_meta("sfs_layer_name", str(layer.name))
 		sprite.set_meta("sfs_equipment", bool(layer.equipment))
 		sprite.set_meta("sfs_anchor", str(layer.get("anchor", "")))
+		sprite.set_meta("sfs_effect", str(layer.effect.type) if layer.get("effect") is Dictionary else "")
 		sprite.set_meta("sfs_opacity", float(layer.opacity))
 		root.add_child(sprite)
 		sprite.owner = root

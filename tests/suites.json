@@ -238,5 +238,15 @@
     "script": "tests/production_recipe_tests.gd",
     "log": "production-recipe-latest.log",
     "report": "production-recipe-report.json"
+  },
+  {
+    "script": "tests/sprite_effects_tests.gd",
+    "log": "sprite-effects-latest.log",
+    "report": "sprite-effects-report.json"
+  },
+  {
+    "script": "tests/sprite_effects_ui_tests.gd",
+    "log": "sprite-effects-ui-latest.log",
+    "report": "sprite-effects-ui-report.json"
   }
 ]

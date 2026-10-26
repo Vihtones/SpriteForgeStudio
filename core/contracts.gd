@@ -132,6 +132,40 @@ static func valid_extensions(data: Dictionary) -> bool:
 			if not layer.families is Array: return false
 			for family in layer.families:
 				if not family is String: return false
+		if layer.has("effect") and not _valid_effect(layer.effect, data): return false
+	return true
+
+## Structure of a layer's effect recipe. A missing source layer is allowed (the user may have
+## deleted it); regeneration refuses it instead of making the whole document invalid.
+static func _valid_effect(effect: Variant, data: Dictionary) -> bool:
+	const Effects = preload("res://core/sprite_effects.gd")
+	if not effect is Dictionary or not effect.get("type") is String or effect.type not in Effects.TYPES: return false
+	if not _integer(effect.get("version")) or int(effect.version) < 1 or int(effect.version) > Effects.VERSION: return false
+	if not effect.get("frames") is Array or effect.frames.is_empty() or effect.frames.size() > 32: return false
+	var seen := {}
+	for f in effect.frames:
+		if not _integer(f) or f < 0 or f >= data.frames or seen.has(int(f)): return false
+		seen[int(f)] = true
+	if effect.type in ["glow", "flash"] and (not effect.get("source_layer_id") is String or effect.source_layer_id.is_empty() or effect.source_layer_id.length() > 128): return false
+	if effect.type in ["glow", "particles"] and (not effect.get("ramp") is String or effect.ramp.is_empty() or effect.ramp.length() > 48): return false
+	if effect.type == "flash" and (not effect.get("color") is String or not Color.html_is_valid(effect.color)): return false
+	if effect.type == "particles":
+		if not effect.get("anchor") is String or effect.anchor.length() > 24 or not effect.get("clip") is String or effect.clip.length() > 40: return false
+		if not _integer(effect.get("seed")) or effect.seed < 0 or effect.seed > 2147483647: return false
+	if effect.has("event_tag") and (not effect.event_tag is String or effect.event_tag.length() > 64): return false
+	if not effect.get("params") is Dictionary: return false
+	var bounds_by_name: Dictionary = Effects.PARAMS[effect.type]
+	for name in effect.params:
+		if not bounds_by_name.has(name): return false
+		var value: Variant = effect.params[name]
+		var bounds: Array = bounds_by_name[name]
+		if (not value is int and not value is float) or not is_finite(float(value)) or float(value) < float(bounds[1]) or float(value) > float(bounds[2]): return false
+	if effect.has("baseline"):
+		if not effect.baseline is Dictionary or effect.baseline.size() > 256: return false
+		for key in effect.baseline:
+			var parts: PackedStringArray = str(key).split(":")
+			if parts.size() != 2 or not parts[0].is_valid_int() or not parts[1].is_valid_int() or int(parts[0]) < 0 or int(parts[0]) > 7 or int(parts[1]) < 0 or int(parts[1]) >= data.frames: return false
+			if not effect.baseline[key] is String or effect.baseline[key].length() != 64 or not effect.baseline[key].is_valid_hex_number(): return false
 	return true
 
 static func _integer(value: Variant) -> bool:

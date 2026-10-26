@@ -5,6 +5,8 @@ const Storage = preload("res://core/storage.gd")
 const ExportValidator = preload("res://core/export_validator.gd")
 const Worker = preload("res://core/batch_worker.gd")
 const World = preload("res://core/world_data.gd")
+const MaterialRamps = preload("res://core/material_ramps.gd")
+const SpriteEffects = preload("res://core/sprite_effects.gd")
 
 var checks: Array[Dictionary] = []
 var failed := 0
@@ -26,6 +28,14 @@ func run() -> void:
 	if FileAccess.file_exists(report_path): DirAccess.remove_absolute(report_path)
 	var document = Document.new()
 	document.demo()
+	# A generated glow layer must survive every export profile and the independent Godot consumer.
+	var ramp_service = MaterialRamps.new()
+	var effect_ramp: Dictionary = ramp_service.build(document, "Fogo", 0, 1, 2, 5)
+	var effect_applied := ramp_service.apply(document, effect_ramp)
+	var effects = SpriteEffects.new()
+	var glow: Dictionary = effects.build(document, {"type": "glow", "source_layer_id": document.layers[0].id, "ramp": "Fogo", "frames": range(document.frames)}) if effect_applied else {"ok": false}
+	var effect_added := bool(glow.get("ok", false)) and effects.apply(document, glow, "Aura de validação")
+	expect(effect_added and document.validate().is_empty(), "synthetic demo gains a generated glow layer that keeps the document valid")
 	document.map_data.rooms[0].id = "consumer-exterior"
 	var first_room_id: String = str(document.map_data.rooms[0].id)
 	var has_interior := World.create_room(document.map_data, "Interior de validação")
