@@ -40,6 +40,9 @@ func run() -> void:
 	if options == null:
 		finish(studio)
 		return
+	var curve_picker: OptionButton = options.find_child("RigCurvePicker", true, false)
+	var timing_check: CheckBox = options.find_child("RigTimingByDuration", true, false)
+	expect(curve_picker != null and curve_picker.selected == 0 and timing_check != null and not timing_check.button_pressed, "diálogo oferece curva de tempo e mantém o comportamento legado por padrão")
 	options.confirmed.emit()
 	await process_frame
 	var preview: ConfirmationDialog = _dialog(studio, "Prévia da interpolação do rig")

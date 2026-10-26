@@ -1,5 +1,6 @@
 extends RefCounted
 ## Schema 2 extension checks. Base raster/map checks remain in Storage.
+const MotionCurves = preload("res://core/motion_curves.gd")
 static func valid_extensions(data: Dictionary) -> bool:
 	for key in ["manifest", "rig", "animation"]:
 		if not data.get(key) is Dictionary: return false
@@ -57,6 +58,11 @@ static func valid_extensions(data: Dictionary) -> bool:
 			var duration = clip.durations_ms[key]
 			if not duration is float and not duration is int: return false
 			if duration < 10 or duration > 10000: return false
+		if clip.has("curves"):
+			if not clip.curves is Dictionary or clip.curves.size() > 32: return false
+			for key in clip.curves:
+				if not key is String or not key.is_valid_int() or int(key) < 0 or int(key) >= data.frames: return false
+				if not MotionCurves.is_valid(clip.curves[key]): return false
 	for mapping in [rig.anchors, rig.depth, a.events, a.hitboxes]:
 		if mapping.size() > 256: return false
 		for key in mapping:

@@ -1,8 +1,11 @@
 extends RefCounted
 ## Fills missing rig poses between authored keys inside one animation clip.
 ## Raster pixels are never modified. Existing keys and other clips/directions are preserved.
+## Spacing follows elapsed frame durations and the clip's per-segment timing curves;
+## options.curve overrides the curve of every filled segment and is recorded on apply.
+const MotionCurves = preload("res://core/motion_curves.gd")
 
-func build(doc: RefCounted, target_direction: int, clip_index: int, layer_id: String, anchor_name: String, channels: Dictionary) -> Dictionary:
+func build(doc: RefCounted, target_direction: int, clip_index: int, layer_id: String, anchor_name: String, channels: Dictionary, options: Dictionary = {}) -> Dictionary:
 	if doc == null or target_direction < 0 or target_direction >= 8:
 		return _failure("Direção inválida.")
 	if clip_index < 0 or clip_index >= doc.animation.clips.size():
@@ -28,6 +31,17 @@ func build(doc: RefCounted, target_direction: int, clip_index: int, layer_id: St
 	var frames: Array = frames_value
 	if frames.size() < 2:
 		return _failure("O clip precisa de ao menos dois quadros.")
+	# Legacy default: every frame counts equally, so existing projects keep their values.
+	var timing := str(options.get("timing", "frames"))
+	if timing not in ["duration", "frames"]:
+		return _failure("Modo de tempo inválido.")
+	var curve_override: Variant = options.get("curve", null)
+	if curve_override != null and not MotionCurves.is_valid(curve_override):
+		return _failure("Curva de tempo inválida.")
+	var stored_curves_value: Variant = clip.get("curves", {})
+	if not stored_curves_value is Dictionary:
+		return _failure("As curvas de tempo do clip são inválidas.")
+	var stored_curves: Dictionary = stored_curves_value
 	var rig_anchors_value: Variant = doc.rig.get("anchors", {})
 	var rotations_value: Variant = doc.rig.get("rotations", {})
 	var offsets_value: Variant = doc.rig.get("offsets", {})
@@ -49,6 +63,7 @@ func build(doc: RefCounted, target_direction: int, clip_index: int, layer_id: St
 	if channels.get("anchor", false):
 		tracks.append(_track("anchor", frames, target_direction, rig_anchors, anchor_name))
 	var changes: Array[Dictionary] = []
+	var curve_updates: Dictionary = {}
 	var source_key_count := 0
 	for track in tracks:
 		if track.has("error"):
@@ -62,18 +77,29 @@ func build(doc: RefCounted, target_direction: int, clip_index: int, layer_id: St
 			var span := int(right.clip_index) - int(left.clip_index)
 			if span < 2:
 				continue
+			var curve := str(curve_override) if curve_override != null else str(stored_curves.get(str(left.frame), MotionCurves.DEFAULT))
+			if not MotionCurves.is_valid(curve):
+				return _failure("O clip contém curva de tempo inválida.")
+			var times := MotionCurves.segment_times(doc, clip, int(left.clip_index), int(right.clip_index), timing)
+			var segment_filled := false
 			for clip_position in range(int(left.clip_index) + 1, int(right.clip_index)):
 				var frame_index := int(frames[clip_position])
 				var pose_key := "%d:%d" % [target_direction, frame_index]
 				var existing: Dictionary = _map_at(track, pose_key)
 				if existing.has(track.value_key):
 					continue
-				var t := float(clip_position - int(left.clip_index)) / float(span)
+				var t := MotionCurves.evaluate(curve, times[clip_position - int(left.clip_index)])
 				var value: Variant = _interpolate_value(str(track.kind), left.value, right.value, t)
+				if track.kind == "anchor":
+					# Overshoot may leave the segment; anchors must stay inside the canvas contract.
+					value = [clampf(float(value[0]), 0.0, float(doc.width - 1)), clampf(float(value[1]), 0.0, float(doc.height - 1))]
 				changes.append({"kind": track.kind, "frame": frame_index, "pose_key": pose_key, "value_key": track.value_key, "value": value})
+				segment_filled = true
+			if segment_filled and curve_override != null:
+				curve_updates[str(left.frame)] = curve
 	if changes.is_empty():
 		return {"ok": true, "changes": [], "source_keys": source_key_count, "message": "Não há quadros intermediários sem chave entre poses do mesmo clip."}
-	return {"ok": true, "changes": changes, "source_keys": source_key_count, "revision": doc.revision, "direction": target_direction, "message": "%d valores intermediários propostos em %d quadros; pixels preservados." % [changes.size(), _unique_frame_count(changes)]}
+	return {"ok": true, "changes": changes, "curve_updates": curve_updates, "clip": clip_index, "source_keys": source_key_count, "revision": doc.revision, "direction": target_direction, "message": "%d valores intermediários propostos em %d quadros; pixels preservados." % [changes.size(), _unique_frame_count(changes)]}
 
 func apply(doc: RefCounted, proposal: Dictionary) -> bool:
 	if doc == null or not proposal.get("ok", false) or not proposal.get("changes", []) is Array or proposal.get("changes", []).is_empty() or int(proposal.get("revision", -1)) != doc.revision:
@@ -97,6 +123,14 @@ func apply(doc: RefCounted, proposal: Dictionary) -> bool:
 		var pose_key := str(change.pose_key)
 		if target_map.get(pose_key, {}).has(str(change.value_key)):
 			return false # A new artist key was authored after proposal generation.
+	var curve_updates: Dictionary = proposal.get("curve_updates", {})
+	var clip_index := int(proposal.get("clip", -1))
+	if not curve_updates.is_empty():
+		if clip_index < 0 or clip_index >= doc.animation.clips.size():
+			return false
+		for frame_text in curve_updates:
+			if not str(frame_text).is_valid_int() or not MotionCurves.is_valid(curve_updates[frame_text]) or not doc.animation.clips[clip_index].frames.has(int(frame_text)):
+				return false
 	if not proposal.changes.is_empty():
 		doc.checkpoint("Interpolar poses do rig")
 	for change in proposal.changes:
@@ -105,6 +139,15 @@ func apply(doc: RefCounted, proposal: Dictionary) -> bool:
 		if not target_map.has(pose_key):
 			target_map[pose_key] = {}
 		target_map[pose_key][str(change.value_key)] = change.value.duplicate(true) if change.value is Array else change.value
+	if not curve_updates.is_empty():
+		var clip: Dictionary = doc.animation.clips[clip_index]
+		var curves: Dictionary = clip.get("curves", {})
+		for frame_text in curve_updates:
+			# Linear is the implicit default; omitting it keeps legacy clips byte-identical.
+			if str(curve_updates[frame_text]) == MotionCurves.DEFAULT: curves.erase(str(frame_text))
+			else: curves[str(frame_text)] = str(curve_updates[frame_text])
+		if curves.is_empty(): clip.erase("curves")
+		else: clip["curves"] = curves
 	doc.mark_changed()
 	return true
 

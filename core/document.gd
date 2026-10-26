@@ -608,6 +608,14 @@ func remap_frames(changed: int, insert: bool) -> void:
 			if not insert and f == changed: continue
 			durations[str(f + ((1 if insert else -1) if f > changed else 0))] = c.durations_ms[key]
 		c.durations_ms = durations
+		if c.has("curves"):
+			var curves := {}
+			for key in c.curves:
+				var f := int(key)
+				if not insert and f == changed: continue
+				curves[str(f + ((1 if insert else -1) if f > changed else 0))] = c.curves[key]
+			if curves.is_empty(): c.erase("curves")
+			else: c.curves = curves
 	var remap_targets: Array = [rig.anchors, rig.depth, rig.get("offsets", {}), rig.get("rotations", {}), rig.get("protected_pixels", {}), animation.events, animation.hitboxes]
 	for layer in layers: remap_targets.append(layer.get("visibility_masks", {}))
 	for target in remap_targets:

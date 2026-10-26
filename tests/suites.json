@@ -100,6 +100,11 @@
     "report": "rig-interpolator-ui-report.json"
   },
   {
+    "script": "tests/motion_curves_tests.gd",
+    "log": "motion-curves-latest.log",
+    "report": "motion-curves-report.json"
+  },
+  {
     "script": "tests/pose_retargeter_tests.gd",
     "log": "pose-retargeter-latest.log",
     "report": "pose-retargeter-report.json"
