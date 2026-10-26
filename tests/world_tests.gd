@@ -92,6 +92,40 @@ func run() -> void:
 	expect(World.metadata(map).terrain[27] == -1 and World.cells(map)[39] == 0, "manual tile clears terrain membership and adjacent mask")
 	World.resize(map, 4, 4)
 	expect(World.cells(map)[15] == 0 and World.valid(map, 32), "crop recalculates terrain edges and keeps valid contract")
+	var reduced := {}
+	for mask in 256: reduced[World.blob47_reduce(mask)] = true
+	var reduced_masks: Array = reduced.keys(); reduced_masks.sort()
+	expect(reduced_masks == World.BLOB47_MASKS, "blob47 reduction maps all 256 neighbor masks onto the 47 canonical masks")
+	expect(World.blob47_reduce(0b00000010) == 0 and World.blob47_reduce(0b00000111) == 7, "blob47 corners count only when both adjacent sides match")
+	var blob_doc := Doc.new()
+	var blob_map: Dictionary = blob_doc.map_data
+	World.resize(blob_map, 8, 8)
+	blob_map.terrain_sets.append({"name": "Lake", "mode": "blob47", "tiles": range(47)})
+	var blob := func(mask: int) -> int: return World.BLOB47_MASKS.find(mask)
+	World.paint(blob_map, Vector2i(3, 3), "Terreno", 0, false)
+	expect(World.cells(blob_map)[27] == blob.call(0), "blob47 isolated cell uses the empty mask tile")
+	World.paint(blob_map, Vector2i(4, 4), "Terreno", 0, false)
+	expect(World.cells(blob_map)[27] == blob.call(0) and World.cells(blob_map)[36] == blob.call(0), "blob47 diagonal-only neighbor does not join cells")
+	for y in range(2, 5):
+		for x in range(2, 5): World.paint(blob_map, Vector2i(x, y), "Terreno", 0, false)
+	expect(World.cells(blob_map)[27] == blob.call(255), "blob47 interior cell uses the full mask tile")
+	expect(World.cells(blob_map)[18] == blob.call(0b00011100) and World.cells(blob_map)[19] == blob.call(0b01111100), "blob47 outer corner and edge include matching diagonals")
+	World.paint(blob_map, Vector2i(3, 3), "Terreno", 0, true)
+	expect(World.cells(blob_map)[19] == blob.call(0b01000100), "blob47 hole drops inner corners from the edge above it")
+	expect(World.cells(blob_map)[18] == blob.call(0b00010100), "blob47 erase updates diagonal neighbors")
+	expect(World.valid(blob_map, 47), "blob47 terrain keeps the map contract valid")
+	blob_map.terrain_sets.append({"name": "Sea", "mode": "blob47", "outside": "same", "tiles": range(47)})
+	World.paint(blob_map, Vector2i(0, 7), "Terreno", 1, false)
+	expect(World.cells(blob_map)[56] == blob.call(0b01110000), "outside=same treats the map border as matching terrain")
+	World.paint(blob_map, Vector2i(0, 7), "Terreno", 1, true)
+	var blob_invalid: Dictionary = blob_map.duplicate(true); blob_invalid.terrain_sets[0].tiles = range(16)
+	expect(not World.valid(blob_invalid, 47), "blob47 terrain requires 47 tiles")
+	blob_invalid = blob_map.duplicate(true); blob_invalid.terrain_sets[0].mode = "edge16"
+	expect(not World.valid(blob_invalid, 47), "edge16 terrain still requires 16 tiles")
+	blob_invalid = blob_map.duplicate(true); blob_invalid.terrain_sets[0].mode = "wang"
+	expect(not World.valid(blob_invalid, 47), "unknown terrain mode is rejected")
+	blob_invalid = blob_map.duplicate(true); blob_invalid.terrain_sets[1].outside = "wrap"
+	expect(not World.valid(blob_invalid, 47), "unknown terrain border rule is rejected")
 	var invalid: Dictionary = map.duplicate(true); invalid.width = 4.5
 	expect(not World.valid(invalid, 32), "fractional dimensions are rejected")
 	invalid = map.duplicate(true); invalid.cells[0] = 1.25
